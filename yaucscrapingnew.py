@@ -7,7 +7,6 @@ import pandas
 import pandas_gbq #pip install pandas-gbq
 from google.oauth2 import service_account #pip install google-auth
 
-
 def get_nextpage(soup):
     ret = soup.find("li", class_="Pager__list--next")
     if ret is None:
@@ -21,53 +20,48 @@ def get_nextpage(soup):
         print("最後のページです。")
         return
 
-
 def get_items(url, df, columns):
     today = datetime.datetime.now()
     lastyear = today.year - 1
-    try:
-        res = requests.get(url)
-        soup = BeautifulSoup(res.text, "html.parser")
-        ret = soup.find_all("li", class_="Product")
-        ret.pop(0) #最初の要素はヘッダーなので削除
-        for item in ret:
-            pid = item.find("a").get("href").replace("https://page.auctions.yahoo.co.jp/jp/auction/","")
-            categorys = item.find_all("a", class_="Product__categoryLink")
-            category_list = [x.text for x in categorys]
-            category = " > ".join(category_list)
-            title = item.find("a", class_="Product__titleLink").text
-            end_price = item.find("span", class_="Product__priceValue").text.replace(",","").replace("円","")
-            start_price = item.find("span", class_="u-fontSize14").text.replace(",","").replace("円","")
-            bid_number = item.find("a", class_="Product__bid").text
-            time = item.find("span", class_="Product__time").text
-            #年の表示がないので年を先頭に付与（過去120日の表示なので、現在月が5月以前なら8月～12月は前年）
-            if today.month <= 5:
-                if 8 <= int(time[:2]) <= 12:
-                    time = str(lastyear) + "/" + time
-                else:
-                    time = str(today.year) + "/" + time
+    res = requests.get(url)
+    soup = BeautifulSoup(res.text, "html.parser")
+    ret = soup.find_all("li", class_="Product")
+    ret.pop(0) #最初の要素はヘッダーなので削除
+    for item in ret:
+        pid = item.find("a").get("href").replace("https://page.auctions.yahoo.co.jp/jp/auction/","")
+        categorys = item.find_all("a", class_="Product__categoryLink")
+        category_list = [x.text for x in categorys]
+        category = " > ".join(category_list)
+        title = item.find("a", class_="Product__titleLink").text
+        end_price = item.find("span", class_="Product__priceValue").text.replace(",","").replace("円","")
+        start_price = item.find("span", class_="u-fontSize14").text.replace(",","").replace("円","")
+        bid_number = item.find("a", class_="Product__bid").text
+        time = item.find("span", class_="Product__time").text
+        #年の表示がないので年を先頭に付与（過去120日の表示なので、現在月が5月以前なら8月～12月は前年）
+        if today.month <= 5:
+            if 8 <= int(time[:2]) <= 12:
+                time = str(lastyear) + "/" + time
             else:
                 time = str(today.year) + "/" + time
+        else:
+            time = str(today.year) + "/" + time
 
-            if item.find("span", class_="Product__icon--freeShipping") is None:
-                freeshipping = 0
-            else:
-                freeshipping = 1
-            print("{0}番目の商品({1}):{2}をDataFrameに追加します...".format(len(df),pid,title))
-            print("カテゴリ:{0} 落札価格:{1} 開始価格:{2} 入札数:{3} 終了時間:{4} 送料無料の有無:{5}"\
-                  .format(category,end_price,start_price,bid_number,time,freeshipping))
-            se = pandas.Series([pid , category, title, end_price, start_price, bid_number, time, freeshipping], columns)
-            df = df.append(se, ignore_index=True)
-
-        next_url = get_nextpage(soup)
-        return df, next_url
-    except:
-        return df, None
+        if item.find("span", class_="Product__icon--freeShipping") is None:
+            freeshipping = 0
+        else:
+            freeshipping = 1
+        print("{0}番目の商品({1}):{2}をDataFrameに追加します...".format(len(df),pid,title))
+        print("カテゴリ:{0} 落札価格:{1} 開始価格:{2} 入札数:{3} 終了時間:{4} 送料無料の有無:{5}"\
+              .format(category,end_price,start_price,bid_number,time,freeshipping))
+        se = pandas.Series([pid , category, title, end_price, start_price, bid_number, time, freeshipping], columns)
+        df = df.append(se, ignore_index=True)
+    next_url = get_nextpage(soup)
+    return df, next_url
 
 def to_gbq(df):
     table_id = "my_dataset.yauc"
-    project_id = "summer-flux-000000"
-    credentials = service_account.Credentials.from_service_account_file("My Project 11111-hogehoge1234.json")
+    project_id = "summer-flux-251205"
+    credentials = service_account.Credentials.from_service_account_file("My Project 67177-8fed25b26bb3.json")
     pandas_gbq.to_gbq(df, table_id, project_id, if_exists='append', credentials=credentials)
     print("DataFrameをデータベースに書き込み完了しました。")
 
